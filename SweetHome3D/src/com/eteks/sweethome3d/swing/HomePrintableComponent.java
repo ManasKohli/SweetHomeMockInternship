@@ -42,6 +42,8 @@ import java.util.HashSet;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -351,25 +353,34 @@ public class HomePrintableComponent extends JComponent implements Printable {
           && (homePrint == null
               || homePrint.isPlanPrinted()
               || homePrint.isView3DPrinted())) {
-        final Level selectedLevel = home.getSelectedLevel();
         furnitureTable = (FurnitureTable)furnitureView;
         furnitureFilter = furnitureTable.getFurnitureFilter();
         furnitureTable.setFurnitureFilter(new FurnitureTable.FurnitureFilter() {
             public boolean include(Home home, HomePieceOfFurniture piece) {
               // Print only furniture at selected level when the plan or the 3D view is printed
               return (furnitureFilter == null || furnitureFilter.include(home, piece))
-                  && piece.isAtLevel(selectedLevel)
                   && (piece.getLevel() == null || piece.getLevel().isViewable());
             }
           });
       } else {
         furnitureFilter = null;
       }
-      // Try to print next furniture view page      
-      pageExists = ((Printable)furnitureView).print(g2D, pageFormat, page);
-      if (furnitureTable != null) {
-        // Restore previous filter
-        ((FurnitureTable)furnitureView).setFurnitureFilter(furnitureFilter);
+      // Try to print next furniture view page
+      List<HomePieceOfFurniture.SortableProperty> visibleProperties = new ArrayList<HomePieceOfFurniture.SortableProperty>(this.home.getFurnitureVisibleProperties());
+      try {
+        if (furnitureTable != null
+                && !visibleProperties.contains(HomePieceOfFurniture.SortableProperty.LEVEL)) {
+          List<HomePieceOfFurniture.SortableProperty> printedProperties =
+                  new ArrayList<HomePieceOfFurniture.SortableProperty>(visibleProperties);
+          printedProperties.add(HomePieceOfFurniture.SortableProperty.LEVEL);
+          this.home.setFurnitureVisibleProperties(printedProperties);
+        }
+        pageExists = ((Printable)furnitureView).print(g2D, pageFormat, page);
+      } finally {
+        if (furnitureTable != null) {
+          furnitureTable.setFurnitureFilter(furnitureFilter);
+          this.home.setFurnitureVisibleProperties(visibleProperties);
+        }
       }
       if (pageExists == PAGE_EXISTS
           && !this.printablePages.contains(page)) {
@@ -381,7 +392,24 @@ public class HomePrintableComponent extends JComponent implements Printable {
         && planView != null 
         && (homePrint == null || homePrint.isPlanPrinted())) {
       // Try to print next plan view page
-      pageExists = ((Printable)planView).print(g2D, pageFormat, page - this.furniturePageCount);
+      Level previousLevel = this.home.getSelectedLevel();
+      List<Level> levels = new ArrayList<Level>();
+      for (Level level : this.home.getLevels()) {
+        if (level.isViewable()) {
+          levels.add(level);
+        }
+      }
+      int planPage = page - this.furniturePageCount;
+      try {
+        if (levels.isEmpty()) {
+          pageExists = ((Printable)planView).print(g2D, pageFormat, planPage);
+        } else if (planPage >= 0 && planPage < levels.size()) {
+          this.home.setSelectedLevel(levels.get(planPage));
+          pageExists = ((Printable)planView).print(g2D, pageFormat, 0);
+        }
+      } finally {
+        this.home.setSelectedLevel(previousLevel);
+      }
       if (pageExists == PAGE_EXISTS
           && !this.printablePages.contains(page)) {
         this.printablePages.add(page);
