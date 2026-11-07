@@ -52,7 +52,6 @@ import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomePieceOfFurniture;
 import com.eteks.sweethome3d.model.HomePrint;
 import com.eteks.sweethome3d.model.LengthUnit;
-import com.eteks.sweethome3d.model.Level;
 import com.eteks.sweethome3d.viewcontroller.ContentManager;
 import com.eteks.sweethome3d.viewcontroller.HomeController;
 import com.eteks.sweethome3d.viewcontroller.PlanView;
@@ -392,24 +391,8 @@ public class HomePrintableComponent extends JComponent implements Printable {
         && planView != null 
         && (homePrint == null || homePrint.isPlanPrinted())) {
       // Try to print next plan view page
-      Level previousLevel = this.home.getSelectedLevel();
-      List<Level> levels = new ArrayList<Level>();
-      for (Level level : this.home.getLevels()) {
-        if (level.isViewable()) {
-          levels.add(level);
-        }
-      }
       int planPage = page - this.furniturePageCount;
-      try {
-        if (levels.isEmpty()) {
-          pageExists = ((Printable)planView).print(g2D, pageFormat, planPage);
-        } else if (planPage >= 0 && planPage < levels.size()) {
-          this.home.setSelectedLevel(levels.get(planPage));
-          pageExists = ((Printable)planView).print(g2D, pageFormat, 0);
-        }
-      } finally {
-        this.home.setSelectedLevel(previousLevel);
-      }
+      pageExists = ((Printable)planView).print(g2D, pageFormat, planPage);
       if (pageExists == PAGE_EXISTS
           && !this.printablePages.contains(page)) {
         this.printablePages.add(page);
